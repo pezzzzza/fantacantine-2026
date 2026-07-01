@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { ChevronRight, Crown, Eye, EyeOff, Grape, LogIn, Lock, Star, User } from 'lucide-react'
 import { SocialButtons } from './social-buttons'
@@ -157,18 +158,18 @@ export function LoginCard() {
         }
       />
 
-      {/* Register */}
+      {/* Register - LINK MODIFICATO */}
       <div className="mt-6 text-center">
         <p className="font-sans text-sm font-medium text-wood">
           Non hai ancora un account?
         </p>
-        <a
-          href="#"
+        <Link
+          href="/register"
           className="mt-1 inline-flex items-center gap-1.5 font-heading text-base font-bold tracking-wide text-bordeaux transition-colors hover:text-gold"
         >
           REGISTRATI ORA
           <ChevronRight className="size-4" aria-hidden="true" />
-        </a>
+        </Link>
       </div>
     </div>
   )
