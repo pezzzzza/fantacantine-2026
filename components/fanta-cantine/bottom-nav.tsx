@@ -1,31 +1,38 @@
-"use client"
+'use client'
 
 import { useState } from "react"
+import { useRouter } from 'next/navigation'  // 👈 AGGIUNGI
 import { Home, Trophy, Users, User, Wine } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const items = [
-  { id: "home", label: "Home", Icon: Home },
-  { id: "classifiche", label: "Classifiche", Icon: Trophy },
-  { id: "squadra", label: "Squadra", Icon: Users },
-  { id: "profilo", label: "Profilo", Icon: User },
+  { id: "home", label: "Home", Icon: Home, path: "/dashboard" },
+  { id: "classifiche", label: "Classifiche", Icon: Trophy, path: "/classifica" },
+  { id: "squadra", label: "Squadra", Icon: Users, path: "/squadra" },
+  { id: "profilo", label: "Profilo", Icon: User, path: "/profilo" },
 ]
 
 export function BottomNav() {
   const [active, setActive] = useState("home")
+  const router = useRouter()  // 👈 AGGIUNGI
+
+  const handleNavigate = (id: string, path: string) => {
+    setActive(id)
+    router.push(path)
+  }
 
   return (
     <nav className="sticky bottom-0 z-20 -mx-4 mt-2">
       <div className="relative flex items-end justify-between rounded-t-3xl border-t border-white/10 bg-primary px-4 pb-5 pt-3 text-primary-foreground shadow-[0_-8px_24px_rgba(0,0,0,0.35)]">
         {/* left pair */}
         <div className="flex flex-1 justify-around">
-          {items.slice(0, 2).map(({ id, label, Icon }) => (
+          {items.slice(0, 2).map(({ id, label, Icon, path }) => (
             <NavButton
               key={id}
               label={label}
               Icon={Icon}
               active={active === id}
-              onClick={() => setActive(id)}
+              onClick={() => handleNavigate(id, path)}
             />
           ))}
         </div>
@@ -35,7 +42,7 @@ export function BottomNav() {
           <button
             type="button"
             aria-label="Azione principale"
-            onClick={() => setActive("wine")}
+            onClick={() => handleNavigate("wine", "/dashboard")}
             className={cn(
               "absolute -top-9 flex size-16 items-center justify-center rounded-full bg-gold text-gold-foreground shadow-lg ring-4 ring-background transition-transform active:scale-90 hover:brightness-105",
               active === "wine" && "scale-105",
@@ -47,13 +54,13 @@ export function BottomNav() {
 
         {/* right pair */}
         <div className="flex flex-1 justify-around">
-          {items.slice(2).map(({ id, label, Icon }) => (
+          {items.slice(2).map(({ id, label, Icon, path }) => (
             <NavButton
               key={id}
               label={label}
               Icon={Icon}
               active={active === id}
-              onClick={() => setActive(id)}
+              onClick={() => handleNavigate(id, path)}
             />
           ))}
         </div>
