@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Suspense } from 'react'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import { PageTransition } from '@/components/ui/PageTransition'  // 👈 AGGIUNGI
+import { Providers } from './providers'  // 👈 AGGIUNTO
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -52,11 +52,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} bg-background`}
     >
       <body className="font-sans antialiased bg-background">
-        <Suspense fallback={<LoadingSpinner />}>
-          <PageTransition>  {/* 👈 AGGIUNGI QUESTO */}
+        <Providers>  {/* 👈 AGGIUNTO */}
+          <Suspense fallback={<LoadingSpinner />}>
             {children}
-          </PageTransition>
-        </Suspense>
+          </Suspense>
+        </Providers>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
