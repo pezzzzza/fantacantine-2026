@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { Star } from 'lucide-react'
-import type { Team } from './leaderboard-data'
+import type { Team } from '@/lib/leaderboard-data'
 import { RankBadge } from './rank-badge'
 import { TeamCrest } from './team-crest'
 
