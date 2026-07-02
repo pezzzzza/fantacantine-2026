@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { Star, User } from 'lucide-react'
-import type { Player } from '@/lib/leaderboard-data'
+import type { Player } from './leaderboard-data'
 import { RankBadge } from './rank-badge'
 
 const rowVariants = {
