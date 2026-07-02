@@ -6,7 +6,7 @@ import { Home, Trophy, Users, User, Wine } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const items = [
-  { id: "home", label: "Home", Icon: Home, path: "/dashboard" },
+  { id: "home", label: "Home", Icon: Home, path: "/home" },
   { id: "classifiche", label: "Classifiche", Icon: Trophy, path: "/classifica" },
   { id: "squadra", label: "Squadra", Icon: Users, path: "/squadra" },
   { id: "profilo", label: "Profilo", Icon: User, path: "/profilo" },
@@ -42,7 +42,7 @@ export function BottomNav() {
           <button
             type="button"
             aria-label="Azione principale"
-            onClick={() => handleNavigate("wine", "/dashboard")}
+            onClick={() => handleNavigate("home", "/home")}
             className={cn(
               "absolute -top-9 flex size-16 items-center justify-center rounded-full bg-gold text-gold-foreground shadow-lg ring-4 ring-background transition-transform active:scale-90 hover:brightness-105",
               active === "wine" && "scale-105",
