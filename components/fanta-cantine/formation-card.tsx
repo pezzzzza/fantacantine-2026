@@ -6,15 +6,16 @@ interface FormationCardProps {
   ore: number
   minuti: number
   secondi: number
+  isOver?: boolean
 }
 
 function pad(n: number) {
   return n.toString().padStart(2, "0")
 }
 
-export function FormationCard({ ore, minuti, secondi }: FormationCardProps) {
-  // Se il timer è scaduto (tutto a zero)
-  const isScaduto = ore === 0 && minuti === 0 && secondi === 0
+export function FormationCard({ ore, minuti, secondi, isOver }: FormationCardProps) {
+  // Se il timer è scaduto o la festa è finita
+  const isScaduto = isOver || (ore === 0 && minuti === 0 && secondi === 0)
 
   const units = [
     { value: pad(ore), label: "ORE" },
@@ -34,7 +35,11 @@ export function FormationCard({ ore, minuti, secondi }: FormationCardProps) {
             Formazione di oggi
           </h2>
           <p className="text-xs font-medium text-muted-foreground">
-            {isScaduto ? "⏰ Tempo scaduto!" : "Scade tra"}
+            {isScaduto ? (
+              isOver ? "🎉 Festa finita!" : "⏰ Tempo scaduto!"
+            ) : (
+              "Scade tra"
+            )}
           </p>
           <div className="mt-0.5 flex items-end gap-1 font-mono tabular-nums">
             {units.map((u, i) => (
@@ -67,7 +72,7 @@ export function FormationCard({ ore, minuti, secondi }: FormationCardProps) {
         }`}
         disabled={isScaduto}
       >
-        {isScaduto ? '⏰ Scaduto' : 'Modifica Formazione'}
+        {isScaduto ? (isOver ? '🎉 Festa finita' : '⏰ Scaduto') : 'Modifica Formazione'}
         {!isScaduto && <ChevronRight className="size-5" />}
       </button>
     </section>
