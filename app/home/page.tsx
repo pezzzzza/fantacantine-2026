@@ -35,19 +35,17 @@ interface Evento {
 
 // Mappa delle date delle serate
 const DATE_SERATE: Record<number, { mese: number, giorno: number }> = {
-  1: { mese: 7, giorno: 19 },  // 19 Agosto
-  2: { mese: 7, giorno: 20 },  // 20 Agosto
-  3: { mese: 7, giorno: 21 },  // 21 Agosto
-  4: { mese: 7, giorno: 22 },  // 22 Agosto
+  1: { mese: 7, giorno: 19 },
+  2: { mese: 7, giorno: 20 },
+  3: { mese: 7, giorno: 21 },
+  4: { mese: 7, giorno: 22 },
 }
 
-// Determina la serata corrente in base alla data di oggi
 const getSerataCorrente = (): number => {
   const oggi = new Date()
   const mese = oggi.getMonth()
   const giorno = oggi.getDate()
   
-  // Agosto 2026
   if (mese === 7) {
     if (giorno === 19) return 1
     if (giorno === 20) return 2
@@ -55,17 +53,13 @@ const getSerataCorrente = (): number => {
     if (giorno === 22) return 4
   }
   
-  // Prima del 19 Agosto -> mostra serata 1 (prossima)
   if (mese < 7 || (mese === 7 && giorno < 19)) return 1
-  
-  // Dopo il 22 Agosto -> festa finita (0)
   if (mese === 7 && giorno > 22) return 0
   if (mese > 7) return 0
   
   return 1
 }
 
-// Determina la serata da una data specifica
 const getSerataFromDate = (date: Date): number => {
   const mese = date.getMonth()
   const giorno = date.getDate()
@@ -81,7 +75,6 @@ const getSerataFromDate = (date: Date): number => {
   return 1
 }
 
-// Determina la prossima data di scadenza (18:00 del giorno della serata)
 const getProssimaScadenza = (): Date | null => {
   const oggi = new Date()
   const serata = getSerataCorrente()
@@ -126,6 +119,10 @@ const getProssimaScadenza = (): Date | null => {
   return prossimoGiorno
 }
 
+// Chiave per sessionStorage
+const CACHE_KEY = 'fantacantine_dashboard_cache'
+const CACHE_TIMESTAMP_KEY = 'fantacantine_dashboard_timestamp'
+
 export default function DashboardPage() {
   // Stati
   const [utente, setUtente] = useState<Utente | null>(null)
@@ -144,11 +141,7 @@ export default function DashboardPage() {
   const [festaFinita, setFestaFinita] = useState(false)
   const [timer, setTimer] = useState({ ore: 0, minuti: 0, secondi: 0 })
   const [notifiche, setNotifiche] = useState(0)
-
-  // Cache
-  const [datiCache, setDatiCache] = useState<any>(null)
-  const [lastFetch, setLastFetch] = useState(0)
-  const isMounted = useRef(true)
+  const [isLoaded, setIsLoaded] = useState(false)
 
   const supabase = createClient()
   const router = useRouter()
@@ -181,197 +174,227 @@ export default function DashboardPage() {
 
   // Caricamento dati
   useEffect(() => {
-    isMounted.current = true
     loadData()
-    return () => { isMounted.current = false }
   }, [])
 
   const loadData = async () => {
-    // Controllo cache (30 secondi)
-    const now = Date.now()
-    if (datiCache && (now - lastFetch) < 30000) {
-      console.log('📦 Usando cache')
-      setUtente(datiCache.utente)
-      setStato(datiCache.stato)
-      setClassifica(datiCache.classifica || [])
-      setMissioni(datiCache.missioni || [])
-      setMissioniCompletate(datiCache.missioniCompletate || [])
-      setPuntiTotali(datiCache.puntiTotali || 0)
-      setPosizione(datiCache.posizione)
-      setBadgeSbloccati(datiCache.badgeSbloccati || [])
-      setSquadraCount(datiCache.squadraCount || 0)
-      setPresenzeCount(datiCache.presenzeCount || 0)
-      setProssimoEvento(datiCache.prossimoEvento)
-      setSerataCorrente(datiCache.serataCorrente || 1)
-      setNotifiche(datiCache.notifiche || 0)
-      setFestaFinita(datiCache.festaFinita || false)
-      setLoading(false)
-      return
+    // 1. Prova a leggere la cache da sessionStorage
+    const cachedData = sessionStorage.getItem(CACHE_KEY)
+    const cachedTimestamp = sessionStorage.getItem(CACHE_TIMESTAMP_KEY)
+    
+    if (cachedData && cachedTimestamp) {
+      const timestamp = parseInt(cachedTimestamp, 10)
+      const now = Date.now()
+      
+      // Cache valida per 30 secondi
+      if (now - timestamp < 30000) {
+        try {
+          const data = JSON.parse(cachedData)
+          console.log('📦 Usando cache da sessionStorage')
+          applyData(data)
+          setLoading(false)
+          setIsLoaded(true)
+          return
+        } catch (e) {
+          console.log('❌ Errore parsing cache')
+        }
+      } else {
+        console.log('⏰ Cache scaduta')
+      }
     }
 
+    // 2. Nessuna cache valida → carica da Supabase
     console.log('🔄 Caricamento da Supabase...')
     setLoading(true)
     
-    // 1. Verifica utente
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.push('/login')
-      setLoading(false)
-      return
-    }
+    try {
+      // 1. Verifica utente
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        setLoading(false)
+        return
+      }
 
-    // 2. Determina serata
-    const serata = getSerataCorrente()
-    setSerataCorrente(serata)
+      // 2. Determina serata
+      const serata = getSerataCorrente()
+      setSerataCorrente(serata)
 
-    if (serata === 0) {
+      if (serata === 0) {
+        const { data: utenteData } = await supabase
+          .from('utenti')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        setUtente(utenteData)
+        setFestaFinita(true)
+        setLoading(false)
+        setIsLoaded(true)
+        return
+      }
+
+      // 3. Carica profilo
       const { data: utenteData } = await supabase
         .from('utenti')
         .select('*')
         .eq('id', user.id)
         .single()
       setUtente(utenteData)
-      setFestaFinita(true)
-      setLoading(false)
-      return
-    }
 
-    // 3. Carica profilo
-    const { data: utenteData } = await supabase
-      .from('utenti')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    setUtente(utenteData)
-
-    // 4. Presenza
-    const { data: presenzaData } = await supabase
-      .from('presenze')
-      .select('stato')
-      .eq('utente_id', user.id)
-      .eq('serata', serata)
-      .single()
-    if (presenzaData) setStato(presenzaData.stato)
-
-    // 5. Classifica top 5
-    const { data: classificaData } = await supabase
-      .from('classifica_giocatori')
-      .select('*')
-      .order('punti_totali', { ascending: false })
-      .limit(5)
-    setClassifica(classificaData || [])
-
-    // 6. Punti utente
-    const { data: puntiData } = await supabase
-      .from('classifica_giocatori')
-      .select('punti_totali')
-      .eq('id', user.id)
-      .single()
-    if (puntiData) setPuntiTotali(puntiData.punti_totali || 0)
-
-    // 7. Posizione
-    const { data: classificaCompleta } = await supabase
-      .from('classifica_giocatori')
-      .select('id')
-      .order('punti_totali', { ascending: false })
-    if (classificaCompleta) {
-      const index = classificaCompleta.findIndex((c: any) => c.id === user.id)
-      setPosizione(index !== -1 ? index + 1 : null)
-    }
-
-    // 8. Missioni
-    const { data: missioniData } = await supabase
-      .from('missioni')
-      .select('*')
-      .eq('serata', serata)
-      .eq('attiva', true)
-    setMissioni(missioniData || [])
-
-    // 9. Missioni completate
-    const { data: completateData } = await supabase
-      .from('completamenti_missioni')
-      .select('missione_id')
-      .eq('giocatore_id', user.id)
-      .eq('serata', serata)
-    if (completateData) {
-      setMissioniCompletate(completateData.map((c: any) => c.missione_id))
-    }
-
-    // 10. Badge
-    try {
-      const { data: badgeData } = await supabase
-        .from('badge_assegnati')
-        .select('badge_id, badge (nome, icona, descrizione)')
+      // 4. Presenza
+      const { data: presenzaData } = await supabase
+        .from('presenze')
+        .select('stato')
         .eq('utente_id', user.id)
-      if (badgeData) {
-        setBadgeSbloccati(badgeData.map((b: any) => b.badge))
+        .eq('serata', serata)
+        .single()
+      if (presenzaData) setStato(presenzaData.stato)
+
+      // 5. Classifica top 5
+      const { data: classificaData } = await supabase
+        .from('classifica_giocatori')
+        .select('*')
+        .order('punti_totali', { ascending: false })
+        .limit(5)
+      setClassifica(classificaData || [])
+
+      // 6. Punti utente
+      const { data: puntiData } = await supabase
+        .from('classifica_giocatori')
+        .select('punti_totali')
+        .eq('id', user.id)
+        .single()
+      if (puntiData) setPuntiTotali(puntiData.punti_totali || 0)
+
+      // 7. Posizione
+      const { data: classificaCompleta } = await supabase
+        .from('classifica_giocatori')
+        .select('id')
+        .order('punti_totali', { ascending: false })
+      if (classificaCompleta) {
+        const index = classificaCompleta.findIndex((c: any) => c.id === user.id)
+        setPosizione(index !== -1 ? index + 1 : null)
       }
-    } catch (e) {
-      setBadgeSbloccati([])
-    }
 
-    // 11. Squadre dell'utente
-    const { data: roseData } = await supabase
-      .from('squadra_membri')
-      .select('squadra_id')
-      .eq('utente_id', user.id)
-    setSquadraCount(roseData?.length || 0)
+      // 8. Missioni
+      const { data: missioniData } = await supabase
+        .from('missioni')
+        .select('*')
+        .eq('serata', serata)
+        .eq('attiva', true)
+      setMissioni(missioniData || [])
 
-    // 12. Presenze totali
-    const { count } = await supabase
-      .from('presenze')
-      .select('*', { count: 'exact', head: true })
-      .eq('serata', serata)
-      .eq('stato', 'ci_saro')
-    setPresenzeCount(count || 0)
+      // 9. Missioni completate
+      const { data: completateData } = await supabase
+        .from('completamenti_missioni')
+        .select('missione_id')
+        .eq('giocatore_id', user.id)
+        .eq('serata', serata)
+      if (completateData) {
+        setMissioniCompletate(completateData.map((c: any) => c.missione_id))
+      }
 
-    // 13. Evento
-    const { data: eventoData, error: eventoError } = await supabase
-      .from('eventi')
-      .select('*')
-      .eq('serata', serata)
-      .single()
-    if (eventoError) {
-      setProssimoEvento(null)
-    } else {
-      setProssimoEvento(eventoData)
-    }
+      // 10. Badge
+      try {
+        const { data: badgeData } = await supabase
+          .from('badge_assegnati')
+          .select('badge_id, badge (nome, icona, descrizione)')
+          .eq('utente_id', user.id)
+        if (badgeData) {
+          setBadgeSbloccati(badgeData.map((b: any) => b.badge))
+        }
+      } catch (e) {
+        setBadgeSbloccati([])
+      }
 
-    // 14. Notifiche
-    try {
-      const { count: notificheCount } = await supabase
-        .from('event_proposals')
+      // 11. Squadre dell'utente
+      const { data: roseData } = await supabase
+        .from('squadra_membri')
+        .select('squadra_id')
+        .eq('utente_id', user.id)
+      setSquadraCount(roseData?.length || 0)
+
+      // 12. Presenze totali
+      const { count } = await supabase
+        .from('presenze')
         .select('*', { count: 'exact', head: true })
-        .eq('stato', 'in_sospeso')
-      setNotifiche(notificheCount || 0)
-    } catch (e) {
-      setNotifiche(0)
-    }
+        .eq('serata', serata)
+        .eq('stato', 'ci_saro')
+      setPresenzeCount(count || 0)
 
-    // Salva in cache
-    const dati = {
-      utente: utenteData,
-      stato: presenzaData?.stato || null,
-      classifica: classificaData || [],
-      missioni: missioniData || [],
-      missioniCompletate: completateData ? completateData.map((c: any) => c.missione_id) : [],
-      puntiTotali: puntiData?.punti_totali || 0,
-      posizione: posizione,
-      badgeSbloccati: badgeSbloccati || [],
-      squadraCount: roseData?.length || 0,
-      presenzeCount: count || 0,
-      prossimoEvento: eventoData || null,
-      serataCorrente: serata,
-      notifiche: notificheCount || 0,
-      festaFinita: false,
-    }
-    setDatiCache(dati)
-    setLastFetch(Date.now())
+      // 13. Evento
+      const { data: eventoData } = await supabase
+        .from('eventi')
+        .select('*')
+        .eq('serata', serata)
+        .single()
+      setProssimoEvento(eventoData || null)
 
-    setLoading(false)
+      // 14. Notifiche
+      try {
+        const { count: notificheCount } = await supabase
+          .from('event_proposals')
+          .select('*', { count: 'exact', head: true })
+          .eq('stato', 'in_sospeso')
+        setNotifiche(notificheCount || 0)
+      } catch (e) {
+        setNotifiche(0)
+      }
+
+      // Salva in sessionStorage
+      const dataToCache = {
+        utente: utenteData,
+        stato: presenzaData?.stato || null,
+        classifica: classificaData || [],
+        missioni: missioniData || [],
+        missioniCompletate: completateData ? completateData.map((c: any) => c.missione_id) : [],
+        puntiTotali: puntiData?.punti_totali || 0,
+        posizione: posizione,
+        badgeSbloccati: badgeSbloccati || [],
+        squadraCount: roseData?.length || 0,
+        presenzeCount: count || 0,
+        prossimoEvento: eventoData || null,
+        serataCorrente: serata,
+        notifiche: notificheCount || 0,
+        festaFinita: false,
+      }
+      
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(dataToCache))
+      sessionStorage.setItem(CACHE_TIMESTAMP_KEY, String(Date.now()))
+
+    } catch (error) {
+      console.error('❌ Errore caricamento:', error)
+    } finally {
+      setLoading(false)
+      setIsLoaded(true)
+    }
   }
 
-  // Gestione presenza (invalida cache)
+  // Funzione per applicare i dati dalla cache
+  const applyData = (data: any) => {
+    setUtente(data.utente)
+    setStato(data.stato)
+    setClassifica(data.classifica || [])
+    setMissioni(data.missioni || [])
+    setMissioniCompletate(data.missioniCompletate || [])
+    setPuntiTotali(data.puntiTotali || 0)
+    setPosizione(data.posizione)
+    setBadgeSbloccati(data.badgeSbloccati || [])
+    setSquadraCount(data.squadraCount || 0)
+    setPresenzeCount(data.presenzeCount || 0)
+    setProssimoEvento(data.prossimoEvento)
+    setSerataCorrente(data.serataCorrente || 1)
+    setNotifiche(data.notifiche || 0)
+    setFestaFinita(data.festaFinita || false)
+  }
+
+  // Invalida cache (quando cambia presenza o altre azioni)
+  const invalidateCache = () => {
+    sessionStorage.removeItem(CACHE_KEY)
+    sessionStorage.removeItem(CACHE_TIMESTAMP_KEY)
+  }
+
+  // Gestione presenza
   const handlePresenza = async (nuovoStato: StatoPresenza) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || nuovoStato === stato) return
@@ -387,9 +410,7 @@ export default function DashboardPage() {
     
     if (!error) {
       setStato(nuovoStato)
-      // Invalida cache
-      setDatiCache(null)
-      setLastFetch(0)
+      invalidateCache()
       loadData()
     }
   }
@@ -397,7 +418,7 @@ export default function DashboardPage() {
   // ============================================
   // LOADING
   // ============================================
-  if (loading) {
+  if (loading && !isLoaded) {
     return <LoadingSpinner />
   }
 
