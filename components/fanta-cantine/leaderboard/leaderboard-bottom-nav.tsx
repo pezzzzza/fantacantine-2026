@@ -10,7 +10,7 @@ const ITEMS = [
   { key: 'profilo', label: 'Profilo', Icon: User },
 ]
 
-export function BottomNav() {
+export function LeaderboardBottomNav() {
   return (
     <nav className="relative flex items-end justify-between rounded-t-3xl border-t border-gold/25 bg-wine-deep px-6 pb-3 pt-3">
       {ITEMS.slice(0, 2).map(({ key, label, Icon, active }) => (
