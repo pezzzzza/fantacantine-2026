@@ -39,10 +39,10 @@ export function TeamRow({ team, isLast }: { team: Team; isLast: boolean }) {
       <TeamCrest crest={team.crest} color={team.crestColor} />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-lg font-bold leading-tight text-cream-ink">
+        <p className="truncate font-display text-lg font-bold leading-tight text-cream-ink uppercase">
           {team.name}
         </p>
-        <p className="truncate text-xs text-cream-ink/60">
+        <p className="truncate text-xs text-cream-ink/60 uppercase">
           Allenatore: {team.coach}
         </p>
       </div>
