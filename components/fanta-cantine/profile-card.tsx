@@ -10,20 +10,47 @@ interface ProfileCardProps {
   dataIscrizione?: string
 }
 
-// Calcola il livello in base ai punti
-const getLivello = (punti: number): number => {
-  if (punti < 10) return 1
-  if (punti < 25) return 2
-  if (punti < 50) return 3
-  if (punti < 80) return 4
-  if (punti < 120) return 5
-  if (punti < 170) return 6
-  if (punti < 230) return 7
-  if (punti < 300) return 8
-  if (punti < 380) return 9
-  if (punti < 470) return 10
-  if (punti < 570) return 11
-  return 12
+const getLivelloInfo = (punti: number): { livello: number, nome: string, prossimo: number, progresso: number } => {
+  const livelli = [
+    { livello: 1, nome: 'Novizio', punti: 0 },
+    { livello: 2, nome: 'Apprendista', punti: 10 },
+    { livello: 3, nome: 'Conoscitore', punti: 25 },
+    { livello: 4, nome: 'Esperto', punti: 50 },
+    { livello: 5, nome: 'Maestro', punti: 80 },
+    { livello: 6, nome: 'Grande Maestro', punti: 120 },
+    { livello: 7, nome: 'Sommellier', punti: 170 },
+    { livello: 8, nome: 'Assaggiatore', punti: 230 },
+    { livello: 9, nome: 'Cantiniere', punti: 300 },
+    { livello: 10, nome: 'Enologo', punti: 380 },
+    { livello: 11, nome: 'Vignaiolo', punti: 470 },
+    { livello: 12, nome: 'Maestro Cantiniere', punti: 570 },
+    { livello: 13, nome: 'Leggenda', punti: 700 },
+    { livello: 14, nome: 'Icona', punti: 850 },
+    { livello: 15, nome: 'Mito', punti: 1000 },
+  ]
+  
+  let info = livelli[0]
+  let index = 0
+  for (let i = 0; i < livelli.length; i++) {
+    if (punti >= livelli[i].punti) {
+      info = livelli[i]
+      index = i
+    }
+  }
+  
+  const prossimoLivello = livelli[index + 1]
+  const puntiLivelloCorrente = info.punti
+  const puntiProssimo = prossimoLivello?.punti || info.punti
+  const progresso = prossimoLivello 
+    ? Math.min(100, Math.round(((punti - puntiLivelloCorrente) / (puntiProssimo - puntiLivelloCorrente)) * 100))
+    : 100
+  
+  return {
+    livello: info.livello,
+    nome: info.nome,
+    prossimo: puntiProssimo,
+    progresso: progresso
+  }
 }
 
 export function ProfileCard({
@@ -36,7 +63,7 @@ export function ProfileCard({
   dataIscrizione
 }: ProfileCardProps) {
   const displayName = soprannome || nome || 'Bomba'
-  const livello = getLivello(puntiTotali)
+  const info = getLivelloInfo(puntiTotali)
 
   return (
     <section className="rounded-3xl border border-border bg-card p-4 text-card-foreground shadow-lg shadow-black/30">
@@ -57,16 +84,35 @@ export function ProfileCard({
 
         <div className="flex items-center gap-3 pl-1">
           <div className="flex size-11 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
-            <span className="text-gold text-2xl">⭐</span>
+            <span className="text-gold text-xl">⭐</span>
           </div>
           <div className="border-l border-border pl-3 text-center">
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Livello
+              {info.nome}
             </p>
-            <p className="text-2xl font-extrabold leading-none">{livello}</p>
+            <p className="text-2xl font-extrabold leading-none">{info.livello}</p>
           </div>
         </div>
       </div>
+
+      {/* Barra di progresso verso il prossimo livello */}
+      {info.progresso < 100 && (
+        <div className="mt-3">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Progresso</span>
+            <span>{info.progresso}%</span>
+          </div>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div 
+              className="h-full rounded-full bg-gold transition-all duration-500"
+              style={{ width: `${info.progresso}%` }}
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground text-right">
+            Prossimo livello: {info.prossimo} punti
+          </p>
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-4 divide-x divide-border border-t border-border pt-3">
         <div className="px-1 text-center">
