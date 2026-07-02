@@ -48,11 +48,30 @@ const getSerataCorrente = (): number => {
   // Prima del 19 Agosto -> mostra serata 1 (prossima)
   if (mese < 7 || (mese === 7 && giorno < 19)) return 1
   
-  // Dopo il 22 Agosto -> mostra serata 4 (ultima)
-  return 4
+  // Dopo il 22 Agosto -> festa finita (0)
+  if (mese === 7 && giorno > 22) return 0
+  if (mese > 7) return 0
+  
+  return 1
 }
 
-export default function HomePage() {
+// Determina la serata da una data specifica
+const getSerataFromDate = (date: Date): number => {
+  const mese = date.getMonth()
+  const giorno = date.getDate()
+  
+  if (mese === 7) {
+    if (giorno === 19) return 1
+    if (giorno === 20) return 2
+    if (giorno === 21) return 3
+    if (giorno === 22) return 4
+    if (giorno > 22) return 0
+  }
+  if (mese > 7) return 0
+  return 1
+}
+
+export default function DashboardPage() {
   const [utente, setUtente] = useState<Utente | null>(null)
   const [stato, setStato] = useState<StatoPresenza>(null)
   const [classifica, setClassifica] = useState<any[]>([])
@@ -66,27 +85,54 @@ export default function HomePage() {
   const [presenzeCount, setPresenzeCount] = useState(0)
   const [prossimoEvento, setProssimoEvento] = useState<Evento | null>(null)
   const [serataCorrente, setSerataCorrente] = useState(1)
+  const [festaFinita, setFestaFinita] = useState(false)
   const [timer, setTimer] = useState({ ore: 0, minuti: 0, secondi: 0 })
 
   const supabase = createClient()
   const router = useRouter()
 
-  // Timer reale (scade alle 18:00)
+  // Timer per la formazione (scade alle 18:00 di ogni serata)
   useEffect(() => {
     const calcolaTimer = () => {
       const ora = new Date()
+      const serata = getSerataCorrente()
+      
+      // Se la festa è finita, timer a zero
+      if (serata === 0) {
+        setFestaFinita(true)
+        return { ore: 0, minuti: 0, secondi: 0 }
+      }
+      
+      // Target: oggi alle 18:00
       const target = new Date(ora)
       target.setHours(18, 0, 0, 0)
+      
+      // Se sono già passate le 18:00, target diventa domani alle 18:00
       if (ora > target) target.setDate(target.getDate() + 1)
+      
+      // Se il giorno target è dopo il 22 Agosto, la festa è finita
+      const targetSerata = getSerataFromDate(target)
+      if (targetSerata === 0) {
+        setFestaFinita(true)
+        return { ore: 0, minuti: 0, secondi: 0 }
+      }
+      
+      setFestaFinita(false)
       const diff = Math.max(0, Math.floor((target.getTime() - ora.getTime()) / 1000))
-      setTimer({
+      return {
         ore: Math.floor(diff / 3600),
         minuti: Math.floor((diff % 3600) / 60),
         secondi: diff % 60
-      })
+      }
     }
-    calcolaTimer()
-    const interval = setInterval(calcolaTimer, 1000)
+    
+    const aggiornaTimer = () => {
+      const result = calcolaTimer()
+      setTimer(result)
+    }
+    
+    aggiornaTimer()
+    const interval = setInterval(aggiornaTimer, 1000)
     return () => clearInterval(interval)
   }, [])
 
@@ -106,6 +152,19 @@ export default function HomePage() {
     // 2. Determina serata corrente
     const serata = getSerataCorrente()
     setSerataCorrente(serata)
+
+    // Se la festa è finita, carica comunque i dati ma mostra messaggio
+    if (serata === 0) {
+      // Carica solo profilo utente
+      const { data: utenteData } = await supabase
+        .from('utenti')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      setUtente(utenteData)
+      setLoading(false)
+      return
+    }
 
     // 3. Carica profilo utente
     const { data: utenteData } = await supabase
@@ -240,6 +299,34 @@ export default function HomePage() {
     )
   }
 
+  // Se la festa è finita
+  if (festaFinita) {
+    return (
+      <main className="min-h-dvh bg-bordeaux-deep">
+        <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-bordeaux-deep items-center justify-center px-4">
+          <div className="text-center">
+            <div className="text-6xl mb-6">🎉</div>
+            <h1 className="text-3xl font-bold text-gold mb-4">
+              Festa delle Cantine 2026
+            </h1>
+            <p className="text-xl text-parchment/80 mb-2">
+              La festa è finita!
+            </p>
+            <p className="text-parchment/60">
+              Grazie per aver partecipato. Ci vediamo il prossimo anno! 🍷
+            </p>
+            <button
+              onClick={() => router.push('/')}
+              className="mt-6 px-6 py-3 bg-gold text-bordeaux-dark rounded-xl font-bold hover:bg-gold/80 transition"
+            >
+              Torna alla home
+            </button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   const displayName = utente?.soprannome || utente?.nome || 'Bomba'
   
   const dataIscrizione = utente?.created_at 
@@ -275,6 +362,7 @@ export default function HomePage() {
             ore={timer.ore}
             minuti={timer.minuti}
             secondi={timer.secondi}
+            isOver={festaFinita}
           />
 
           <div className="grid grid-cols-2 gap-4">
