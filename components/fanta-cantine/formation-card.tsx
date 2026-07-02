@@ -1,31 +1,25 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { ClipboardList, ChevronRight } from "lucide-react"
+
+interface FormationCardProps {
+  ore: number
+  minuti: number
+  secondi: number
+}
 
 function pad(n: number) {
   return n.toString().padStart(2, "0")
 }
 
-export function FormationCard() {
-  // Start at 05:12:47 and count down
-  const [seconds, setSeconds] = useState(5 * 3600 + 12 * 60 + 47)
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setSeconds((s) => (s > 0 ? s - 1 : 0))
-    }, 1000)
-    return () => clearInterval(id)
-  }, [])
-
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = seconds % 60
+export function FormationCard({ ore, minuti, secondi }: FormationCardProps) {
+  // Se il timer è scaduto (tutto a zero)
+  const isScaduto = ore === 0 && minuti === 0 && secondi === 0
 
   const units = [
-    { value: pad(h), label: "ORE" },
-    { value: pad(m), label: "MIN" },
-    { value: pad(s), label: "SEC" },
+    { value: pad(ore), label: "ORE" },
+    { value: pad(minuti), label: "MIN" },
+    { value: pad(secondi), label: "SEC" },
   ]
 
   return (
@@ -39,12 +33,14 @@ export function FormationCard() {
           <h2 className="text-base font-extrabold uppercase leading-tight">
             Formazione di oggi
           </h2>
-          <p className="text-xs font-medium text-muted-foreground">Scade tra</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {isScaduto ? "⏰ Tempo scaduto!" : "Scade tra"}
+          </p>
           <div className="mt-0.5 flex items-end gap-1 font-mono tabular-nums">
             {units.map((u, i) => (
               <div key={u.label} className="flex items-end gap-1">
                 <div className="text-center">
-                  <span className="block text-xl font-extrabold leading-none text-primary">
+                  <span className={`block text-xl font-extrabold leading-none ${isScaduto ? 'text-destructive' : 'text-primary'}`}>
                     {u.value}
                   </span>
                   <span className="text-[9px] font-semibold tracking-wide text-muted-foreground">
@@ -52,7 +48,7 @@ export function FormationCard() {
                   </span>
                 </div>
                 {i < units.length - 1 && (
-                  <span className="pb-3 text-xl font-extrabold text-primary/60">
+                  <span className={`pb-3 text-xl font-extrabold ${isScaduto ? 'text-destructive/60' : 'text-primary/60'}`}>
                     :
                   </span>
                 )}
@@ -64,10 +60,15 @@ export function FormationCard() {
 
       <button
         type="button"
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-primary-foreground shadow-md transition-all active:scale-[0.98] hover:brightness-110"
+        className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-extrabold uppercase tracking-wide shadow-md transition-all active:scale-[0.98] ${
+          isScaduto 
+            ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
+            : 'bg-primary text-primary-foreground hover:brightness-110'
+        }`}
+        disabled={isScaduto}
       >
-        Modifica Formazione
-        <ChevronRight className="size-5" />
+        {isScaduto ? '⏰ Scaduto' : 'Modifica Formazione'}
+        {!isScaduto && <ChevronRight className="size-5" />}
       </button>
     </section>
   )
