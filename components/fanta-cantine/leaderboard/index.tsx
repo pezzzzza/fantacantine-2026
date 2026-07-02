@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { players, teams } from './leaderboard-data'
+import { getClassificaSquadre, getClassificaGiocatori } from '@/lib/leaderboard-data'
 import { LeaderboardHeader } from './leaderboard-header'
 import { LeaderboardTabs, type TabKey } from './leaderboard-tabs'
 import { TeamRow } from './team-row'
@@ -10,6 +10,7 @@ import { PlayerRow } from './player-row'
 import { UpdateFooter } from './update-footer'
 import { LeaderboardBottomNav } from './leaderboard-bottom-nav'
 import { EmptyState, ErrorState, LoadingState } from './states'
+import { createClient } from '@/lib/supabase/client'
 
 type Status = 'loading' | 'error' | 'ready'
 
@@ -33,30 +34,63 @@ function formatNow() {
 
 export function Leaderboard() {
   const [tab, setTab] = useState<TabKey>('squadre')
-  const [status] = useState<Status>('ready')
+  const [teams, setTeams] = useState<any[]>([])
+  const [players, setPlayers] = useState<any[]>([])
+  const [status, setStatus] = useState<Status>('loading')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(formatNow())
 
+  const supabase = createClient()
+
+  // Carica i dati reali
+  const loadData = async () => {
+    setStatus('loading')
+    try {
+      // Prendi l'ID dell'utente loggato
+      const { data: { user } } = await supabase.auth.getUser()
+      const userId = user?.id
+
+      // Carica classifica squadre e giocatori
+      const [squadre, giocatori] = await Promise.all([
+        getClassificaSquadre(userId),
+        getClassificaGiocatori(userId)
+      ])
+
+      setTeams(squadre)
+      setPlayers(giocatori)
+      setStatus('ready')
+    } catch (error) {
+      console.error('Errore caricamento classifica:', error)
+      setStatus('error')
+    }
+  }
+
+  // Carica all'avvio
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  // Handle refresh
+  function handleRefresh() {
+    if (isRefreshing) return
+    setIsRefreshing(true)
+    loadData().then(() => {
+      setLastUpdated(formatNow())
+      setIsRefreshing(false)
+    })
+  }
+
   const sortedTeams = useMemo(
     () => [...teams].sort((a, b) => a.rank - b.rank),
-    [],
+    [teams],
   )
   const sortedPlayers = useMemo(
     () => [...players].sort((a, b) => a.rank - b.rank),
-    [],
+    [players],
   )
 
   const isEmpty =
     tab === 'squadre' ? sortedTeams.length === 0 : sortedPlayers.length === 0
-
-  function handleRefresh() {
-    if (isRefreshing) return
-    setIsRefreshing(true)
-    setTimeout(() => {
-      setLastUpdated(formatNow())
-      setIsRefreshing(false)
-    }, 1000)
-  }
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-[#14213d]">
@@ -67,7 +101,7 @@ export function Leaderboard() {
       <div className="flex-1 px-4 pb-4 pt-4">
         <div className="rounded-3xl border border-[#e8c46a]/30 bg-[#f5efe6] px-2 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
           {status === 'loading' && <LoadingState />}
-          {status === 'error' && <ErrorState onRetry={() => {}} />}
+          {status === 'error' && <ErrorState onRetry={loadData} />}
           {status === 'ready' && isEmpty && <EmptyState />}
 
           {status === 'ready' && !isEmpty && (
