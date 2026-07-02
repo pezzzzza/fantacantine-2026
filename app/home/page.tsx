@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { PageTransition } from '@/components/ui/PageTransition'
 import { HeroBanner } from "@/components/fanta-cantine/hero-banner"
 import { ProfileCard } from "@/components/fanta-cantine/profile-card"
 import { PresenceSelector } from "@/components/fanta-cantine/presence-selector"
@@ -160,7 +162,6 @@ export default function DashboardPage() {
     const calcolaTimer = () => {
       const prossimaScadenza = getProssimaScadenza()
       
-      // Se non c'è una prossima scadenza, la festa è finita
       if (!prossimaScadenza) {
         setFestaFinita(true)
         return { ore: 0, minuti: 0, secondi: 0 }
@@ -192,7 +193,6 @@ export default function DashboardPage() {
   const loadData = async () => {
     setLoading(true)
     
-    // 1. Verifica utente loggato
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       router.push('/login')
@@ -200,11 +200,9 @@ export default function DashboardPage() {
       return
     }
 
-    // 2. Determina serata corrente
     const serata = getSerataCorrente()
     setSerataCorrente(serata)
 
-    // Se la festa è finita, carica solo profilo utente
     if (serata === 0) {
       const { data: utenteData } = await supabase
         .from('utenti')
@@ -216,7 +214,6 @@ export default function DashboardPage() {
       return
     }
 
-    // 3. Carica profilo utente
     const { data: utenteData } = await supabase
       .from('utenti')
       .select('*')
@@ -224,7 +221,6 @@ export default function DashboardPage() {
       .single()
     setUtente(utenteData)
 
-    // 4. Carica presenza per la serata corrente
     const { data: presenzaData } = await supabase
       .from('presenze')
       .select('stato')
@@ -233,7 +229,6 @@ export default function DashboardPage() {
       .single()
     if (presenzaData) setStato(presenzaData.stato)
 
-    // 5. Carica classifica giocatori (top 5)
     const { data: classificaData } = await supabase
       .from('classifica_giocatori')
       .select('*')
@@ -241,7 +236,6 @@ export default function DashboardPage() {
       .limit(5)
     setClassifica(classificaData || [])
 
-    // 6. Carica punti utente
     const { data: puntiData } = await supabase
       .from('classifica_giocatori')
       .select('punti_totali')
@@ -249,7 +243,6 @@ export default function DashboardPage() {
       .single()
     if (puntiData) setPuntiTotali(puntiData.punti_totali || 0)
 
-    // 7. Calcola posizione in classifica
     const { data: classificaCompleta } = await supabase
       .from('classifica_giocatori')
       .select('id')
@@ -259,7 +252,6 @@ export default function DashboardPage() {
       setPosizione(index !== -1 ? index + 1 : null)
     }
 
-    // 8. Carica missioni per la serata corrente
     const { data: missioniData } = await supabase
       .from('missioni')
       .select('*')
@@ -267,7 +259,6 @@ export default function DashboardPage() {
       .eq('attiva', true)
     setMissioni(missioniData || [])
 
-    // 9. Carica missioni completate per la serata corrente
     const { data: completateData } = await supabase
       .from('completamenti_missioni')
       .select('missione_id')
@@ -277,7 +268,6 @@ export default function DashboardPage() {
       setMissioniCompletate(completateData.map((c: any) => c.missione_id))
     }
 
-    // 10. Carica badge (se esiste la tabella)
     try {
       const { data: badgeData } = await supabase
         .from('badge_assegnati')
@@ -290,14 +280,12 @@ export default function DashboardPage() {
       setBadgeSbloccati([])
     }
 
-    // 11. Conta squadre dell'utente (come membro)
     const { data: roseData } = await supabase
       .from('squadra_membri')
       .select('squadra_id')
       .eq('utente_id', user.id)
     setSquadraCount(roseData?.length || 0)
 
-    // 12. Conta presenze totali per la serata corrente
     const { count } = await supabase
       .from('presenze')
       .select('*', { count: 'exact', head: true })
@@ -305,7 +293,6 @@ export default function DashboardPage() {
       .eq('stato', 'ci_saro')
     setPresenzeCount(count || 0)
 
-    // 13. Carica evento per la serata corrente
     const { data: eventoData, error: eventoError } = await supabase
       .from('eventi')
       .select('*')
@@ -319,7 +306,6 @@ export default function DashboardPage() {
       setProssimoEvento(eventoData)
     }
 
-    // 14. Conta notifiche (proposte in sospeso)
     try {
       const { count: notificheCount } = await supabase
         .from('event_proposals')
@@ -352,94 +338,101 @@ export default function DashboardPage() {
     }
   }
 
+  // ============================================
+  // LOADING STATE
+  // ============================================
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bordeaux-deep">
-        <div className="animate-pulse text-gold text-sm">⏳ Caricamento...</div>
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
-  // Se la festa è finita
+  // ============================================
+  // FESTA FINITA
+  // ============================================
   if (festaFinita) {
     return (
-      <main className="min-h-dvh bg-bordeaux-deep">
-        <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-bordeaux-deep items-center justify-center px-4">
-          <div className="text-center">
-            <div className="text-6xl mb-6">🎉</div>
-            <h1 className="text-3xl font-bold text-gold mb-4">
-              Festa delle Cantine 2026
-            </h1>
-            <p className="text-xl text-parchment/80 mb-2">
-              La festa è finita!
-            </p>
-            <p className="text-parchment/60">
-              Grazie per aver partecipato. Ci vediamo il prossimo anno! 🍷
-            </p>
-            <button
-              onClick={() => router.push('/')}
-              className="mt-6 px-6 py-3 bg-gold text-bordeaux-dark rounded-xl font-bold hover:bg-gold/80 transition"
-            >
-              Torna alla home
-            </button>
+      <PageTransition>
+        <main className="min-h-dvh bg-bordeaux-deep">
+          <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-bordeaux-deep items-center justify-center px-4">
+            <div className="text-center">
+              <div className="text-6xl mb-6">🎉</div>
+              <h1 className="text-3xl font-bold text-gold mb-4">
+                Festa delle Cantine 2026
+              </h1>
+              <p className="text-xl text-parchment/80 mb-2">
+                La festa è finita!
+              </p>
+              <p className="text-parchment/60">
+                Grazie per aver partecipato. Ci vediamo il prossimo anno! 🍷
+              </p>
+              <button
+                onClick={() => router.push('/')}
+                className="mt-6 px-6 py-3 bg-gold text-bordeaux-dark rounded-xl font-bold hover:bg-gold/80 transition"
+              >
+                Torna alla home
+              </button>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </PageTransition>
     )
   }
 
   const displayName = utente?.soprannome || utente?.nome || 'Bomba'
-  
   const dataIscrizione = utente?.created_at 
     ? new Date(utente.created_at).toLocaleDateString('it-IT', { year: 'numeric', month: 'long' })
     : '2026'
 
+  // ============================================
+  // DASHBOARD
+  // ============================================
   return (
-    <main className="min-h-dvh bg-bordeaux-deep">
-      <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-bordeaux-deep">
-        <HeroBanner notifiche={notifiche} />
+    <PageTransition>
+      <main className="min-h-dvh bg-bordeaux-deep">
+        <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-bordeaux-deep">
+          <HeroBanner notifiche={notifiche} />
 
-        <div className="flex flex-1 flex-col gap-5 px-4 pb-2 pt-4">
-          <div className="relative z-10 -mt-10">
-            <ProfileCard 
-              nome={utente?.nome || 'Bomba'}
-              soprannome={utente?.soprannome}
-              puntiTotali={puntiTotali}
-              posizione={posizione}
-              badgeCount={badgeSbloccati.length}
-              squadreCount={squadraCount}
-              dataIscrizione={dataIscrizione}
-            />
-          </div>
+          <div className="flex flex-1 flex-col gap-5 px-4 pb-2 pt-4">
+            <div className="relative z-10 -mt-10">
+              <ProfileCard 
+                nome={utente?.nome || 'Bomba'}
+                soprannome={utente?.soprannome}
+                puntiTotali={puntiTotali}
+                posizione={posizione}
+                badgeCount={badgeSbloccati.length}
+                squadreCount={squadraCount}
+                dataIscrizione={dataIscrizione}
+              />
+            </div>
 
-          <PresenceSelector 
-            stato={stato}
-            onPresenza={handlePresenza}
-            presenzeCount={presenzeCount}
-            serata={serataCorrente}
-          />
-
-          <FormationCard 
-            ore={timer.ore}
-            minuti={timer.minuti}
-            secondi={timer.secondi}
-            isOver={festaFinita}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <MissionsCard 
-              missioni={missioni}
-              completate={missioniCompletate}
+            <PresenceSelector 
+              stato={stato}
+              onPresenza={handlePresenza}
+              presenzeCount={presenzeCount}
               serata={serataCorrente}
             />
-            <NextEventCard evento={prossimoEvento} />
+
+            <FormationCard 
+              ore={timer.ore}
+              minuti={timer.minuti}
+              secondi={timer.secondi}
+              isOver={festaFinita}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <MissionsCard 
+                missioni={missioni}
+                completate={missioniCompletate}
+                serata={serataCorrente}
+              />
+              <NextEventCard evento={prossimoEvento} />
+            </div>
+
+            <TopPlayers classifica={classifica} />
           </div>
 
-          <TopPlayers classifica={classifica} />
+          <BottomNav />
         </div>
-
-        <BottomNav />
-      </div>
-    </main>
+      </main>
+    </PageTransition>
   )
 }
