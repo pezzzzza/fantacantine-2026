@@ -150,6 +150,7 @@ export default function DashboardPage() {
   const [serataCorrente, setSerataCorrente] = useState(1)
   const [festaFinita, setFestaFinita] = useState(false)
   const [timer, setTimer] = useState({ ore: 0, minuti: 0, secondi: 0 })
+  const [notifiche, setNotifiche] = useState(0)
 
   const supabase = createClient()
   const router = useRouter()
@@ -318,6 +319,17 @@ export default function DashboardPage() {
       setProssimoEvento(eventoData)
     }
 
+    // 14. Conta notifiche (proposte in sospeso)
+    try {
+      const { count: notificheCount } = await supabase
+        .from('event_proposals')
+        .select('*', { count: 'exact', head: true })
+        .eq('stato', 'in_sospeso')
+      setNotifiche(notificheCount || 0)
+    } catch (e) {
+      setNotifiche(0)
+    }
+
     setLoading(false)
   }
 
@@ -385,7 +397,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-dvh bg-bordeaux-deep">
       <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-bordeaux-deep">
-        <HeroBanner />
+        <HeroBanner notifiche={notifiche} />
 
         <div className="flex flex-1 flex-col gap-5 px-4 pb-2 pt-4">
           <div className="relative z-10 -mt-10">
