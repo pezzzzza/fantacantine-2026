@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -48,7 +48,7 @@ const getSerataCorrente = (): number => {
   const giorno = oggi.getDate()
   
   // Agosto 2026
-  if (mese === 7) { // Agosto è mese 7 (0-based)
+  if (mese === 7) {
     if (giorno === 19) return 1
     if (giorno === 20) return 2
     if (giorno === 21) return 3
@@ -86,31 +86,24 @@ const getProssimaScadenza = (): Date | null => {
   const oggi = new Date()
   const serata = getSerataCorrente()
   
-  // Se la festa è finita, return null
   if (serata === 0) return null
   
   const serataInfo = DATE_SERATE[serata]
   if (!serataInfo) return null
   
-  // Crea la data della serata alle 18:00
   const target = new Date(2026, serataInfo.mese, serataInfo.giorno, 18, 0, 0, 0)
   
-  // Se oggi è il giorno della serata
   const oggiData = new Date(oggi)
   oggiData.setHours(0, 0, 0, 0)
   
   const targetData = new Date(target)
   targetData.setHours(0, 0, 0, 0)
   
-  // Se oggi è il giorno della serata
   if (oggiData.getTime() === targetData.getTime()) {
-    // Scadenza oggi alle 18:00
     const scadenza = new Date(oggi)
     scadenza.setHours(18, 0, 0, 0)
     
-    // Se sono già passate le 18:00, la scadenza è scaduta
     if (oggi > scadenza) {
-      // Prossima scadenza: giorno dopo alle 18:00 (se esiste)
       const prossimoGiorno = new Date(target)
       prossimoGiorno.setDate(prossimoGiorno.getDate() + 1)
       const prossimaSerata = getSerataFromDate(prossimoGiorno)
@@ -118,16 +111,13 @@ const getProssimaScadenza = (): Date | null => {
       prossimoGiorno.setHours(18, 0, 0, 0)
       return prossimoGiorno
     }
-    
     return scadenza
   }
   
-  // Se oggi è prima della serata, target è la serata alle 18:00
   if (oggi < target) {
     return target
   }
   
-  // Se oggi è dopo la serata, prossima scadenza è il giorno dopo alle 18:00
   const prossimoGiorno = new Date(target)
   prossimoGiorno.setDate(prossimoGiorno.getDate() + 1)
   const prossimaSerata = getSerataFromDate(prossimoGiorno)
@@ -137,6 +127,7 @@ const getProssimaScadenza = (): Date | null => {
 }
 
 export default function DashboardPage() {
+  // Stati
   const [utente, setUtente] = useState<Utente | null>(null)
   const [stato, setStato] = useState<StatoPresenza>(null)
   const [classifica, setClassifica] = useState<any[]>([])
@@ -154,22 +145,24 @@ export default function DashboardPage() {
   const [timer, setTimer] = useState({ ore: 0, minuti: 0, secondi: 0 })
   const [notifiche, setNotifiche] = useState(0)
 
+  // Cache
+  const [datiCache, setDatiCache] = useState<any>(null)
+  const [lastFetch, setLastFetch] = useState(0)
+  const isMounted = useRef(true)
+
   const supabase = createClient()
   const router = useRouter()
 
-  // Timer per la formazione (scade alle 18:00 di ogni serata)
+  // Timer
   useEffect(() => {
     const calcolaTimer = () => {
       const prossimaScadenza = getProssimaScadenza()
-      
       if (!prossimaScadenza) {
         setFestaFinita(true)
         return { ore: 0, minuti: 0, secondi: 0 }
       }
-      
       const ora = new Date()
       const diff = Math.max(0, Math.floor((prossimaScadenza.getTime() - ora.getTime()) / 1000))
-      
       setFestaFinita(false)
       return {
         ore: Math.floor(diff / 3600),
@@ -177,22 +170,49 @@ export default function DashboardPage() {
         secondi: diff % 60
       }
     }
-    
     const aggiornaTimer = () => {
       const result = calcolaTimer()
       setTimer(result)
     }
-    
     aggiornaTimer()
     const interval = setInterval(aggiornaTimer, 1000)
     return () => clearInterval(interval)
   }, [])
 
-  useEffect(() => { loadData() }, [])
+  // Caricamento dati
+  useEffect(() => {
+    isMounted.current = true
+    loadData()
+    return () => { isMounted.current = false }
+  }, [])
 
   const loadData = async () => {
+    // Controllo cache (30 secondi)
+    const now = Date.now()
+    if (datiCache && (now - lastFetch) < 30000) {
+      console.log('📦 Usando cache')
+      setUtente(datiCache.utente)
+      setStato(datiCache.stato)
+      setClassifica(datiCache.classifica || [])
+      setMissioni(datiCache.missioni || [])
+      setMissioniCompletate(datiCache.missioniCompletate || [])
+      setPuntiTotali(datiCache.puntiTotali || 0)
+      setPosizione(datiCache.posizione)
+      setBadgeSbloccati(datiCache.badgeSbloccati || [])
+      setSquadraCount(datiCache.squadraCount || 0)
+      setPresenzeCount(datiCache.presenzeCount || 0)
+      setProssimoEvento(datiCache.prossimoEvento)
+      setSerataCorrente(datiCache.serataCorrente || 1)
+      setNotifiche(datiCache.notifiche || 0)
+      setFestaFinita(datiCache.festaFinita || false)
+      setLoading(false)
+      return
+    }
+
+    console.log('🔄 Caricamento da Supabase...')
     setLoading(true)
     
+    // 1. Verifica utente
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       router.push('/login')
@@ -200,6 +220,7 @@ export default function DashboardPage() {
       return
     }
 
+    // 2. Determina serata
     const serata = getSerataCorrente()
     setSerataCorrente(serata)
 
@@ -210,10 +231,12 @@ export default function DashboardPage() {
         .eq('id', user.id)
         .single()
       setUtente(utenteData)
+      setFestaFinita(true)
       setLoading(false)
       return
     }
 
+    // 3. Carica profilo
     const { data: utenteData } = await supabase
       .from('utenti')
       .select('*')
@@ -221,6 +244,7 @@ export default function DashboardPage() {
       .single()
     setUtente(utenteData)
 
+    // 4. Presenza
     const { data: presenzaData } = await supabase
       .from('presenze')
       .select('stato')
@@ -229,6 +253,7 @@ export default function DashboardPage() {
       .single()
     if (presenzaData) setStato(presenzaData.stato)
 
+    // 5. Classifica top 5
     const { data: classificaData } = await supabase
       .from('classifica_giocatori')
       .select('*')
@@ -236,6 +261,7 @@ export default function DashboardPage() {
       .limit(5)
     setClassifica(classificaData || [])
 
+    // 6. Punti utente
     const { data: puntiData } = await supabase
       .from('classifica_giocatori')
       .select('punti_totali')
@@ -243,6 +269,7 @@ export default function DashboardPage() {
       .single()
     if (puntiData) setPuntiTotali(puntiData.punti_totali || 0)
 
+    // 7. Posizione
     const { data: classificaCompleta } = await supabase
       .from('classifica_giocatori')
       .select('id')
@@ -252,6 +279,7 @@ export default function DashboardPage() {
       setPosizione(index !== -1 ? index + 1 : null)
     }
 
+    // 8. Missioni
     const { data: missioniData } = await supabase
       .from('missioni')
       .select('*')
@@ -259,6 +287,7 @@ export default function DashboardPage() {
       .eq('attiva', true)
     setMissioni(missioniData || [])
 
+    // 9. Missioni completate
     const { data: completateData } = await supabase
       .from('completamenti_missioni')
       .select('missione_id')
@@ -268,6 +297,7 @@ export default function DashboardPage() {
       setMissioniCompletate(completateData.map((c: any) => c.missione_id))
     }
 
+    // 10. Badge
     try {
       const { data: badgeData } = await supabase
         .from('badge_assegnati')
@@ -280,12 +310,14 @@ export default function DashboardPage() {
       setBadgeSbloccati([])
     }
 
+    // 11. Squadre dell'utente
     const { data: roseData } = await supabase
       .from('squadra_membri')
       .select('squadra_id')
       .eq('utente_id', user.id)
     setSquadraCount(roseData?.length || 0)
 
+    // 12. Presenze totali
     const { count } = await supabase
       .from('presenze')
       .select('*', { count: 'exact', head: true })
@@ -293,19 +325,19 @@ export default function DashboardPage() {
       .eq('stato', 'ci_saro')
     setPresenzeCount(count || 0)
 
+    // 13. Evento
     const { data: eventoData, error: eventoError } = await supabase
       .from('eventi')
       .select('*')
       .eq('serata', serata)
       .single()
-
     if (eventoError) {
-      console.error('Errore caricamento evento:', eventoError)
       setProssimoEvento(null)
     } else {
       setProssimoEvento(eventoData)
     }
 
+    // 14. Notifiche
     try {
       const { count: notificheCount } = await supabase
         .from('event_proposals')
@@ -316,9 +348,30 @@ export default function DashboardPage() {
       setNotifiche(0)
     }
 
+    // Salva in cache
+    const dati = {
+      utente: utenteData,
+      stato: presenzaData?.stato || null,
+      classifica: classificaData || [],
+      missioni: missioniData || [],
+      missioniCompletate: completateData ? completateData.map((c: any) => c.missione_id) : [],
+      puntiTotali: puntiData?.punti_totali || 0,
+      posizione: posizione,
+      badgeSbloccati: badgeSbloccati || [],
+      squadraCount: roseData?.length || 0,
+      presenzeCount: count || 0,
+      prossimoEvento: eventoData || null,
+      serataCorrente: serata,
+      notifiche: notificheCount || 0,
+      festaFinita: false,
+    }
+    setDatiCache(dati)
+    setLastFetch(Date.now())
+
     setLoading(false)
   }
 
+  // Gestione presenza (invalida cache)
   const handlePresenza = async (nuovoStato: StatoPresenza) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || nuovoStato === stato) return
@@ -334,12 +387,15 @@ export default function DashboardPage() {
     
     if (!error) {
       setStato(nuovoStato)
+      // Invalida cache
+      setDatiCache(null)
+      setLastFetch(0)
       loadData()
     }
   }
 
   // ============================================
-  // LOADING STATE
+  // LOADING
   // ============================================
   if (loading) {
     return <LoadingSpinner />
