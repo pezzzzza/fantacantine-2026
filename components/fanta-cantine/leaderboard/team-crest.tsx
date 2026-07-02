@@ -1,5 +1,5 @@
 import { Grape, Wine, GlassWater, Music, Leaf, Container } from 'lucide-react'
-import type { Crest } from './leaderboard-data'
+import type { Crest } from '@/lib/leaderboard-data'
 
 const ICONS: Record<Crest, typeof Grape> = {
   grape: Grape,
