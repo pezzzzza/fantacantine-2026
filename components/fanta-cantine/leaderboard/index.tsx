@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { players, teams } from '@/lib/leaderboard-data'
+import { players, teams } from './leaderboard-data'
 import { LeaderboardHeader } from './leaderboard-header'
 import { LeaderboardTabs, type TabKey } from './leaderboard-tabs'
 import { TeamRow } from './team-row'
 import { PlayerRow } from './player-row'
 import { UpdateFooter } from './update-footer'
-import { BottomNav } from './bottom-nav'
+import { LeaderboardBottomNav } from './leaderboard-bottom-nav'
 import { EmptyState, ErrorState, LoadingState } from './states'
 
 type Status = 'loading' | 'error' | 'ready'
@@ -19,7 +19,7 @@ const listVariants = {
 }
 
 function formatNow() {
-  const d = new Date('2026-08-21T22:45:00')
+  const d = new Date()
   const months = [
     'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
     'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
@@ -53,30 +53,19 @@ export function Leaderboard() {
     if (isRefreshing) return
     setIsRefreshing(true)
     setTimeout(() => {
-      const now = new Date()
-      const months = [
-        'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
-        'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
-      ]
-      const time = now.toLocaleTimeString('it-IT', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-      setLastUpdated(
-        `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}, ${time}`,
-      )
+      setLastUpdated(formatNow())
       setIsRefreshing(false)
     }, 1000)
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-night">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-[#14213d]">
       <LeaderboardHeader />
 
       <LeaderboardTabs active={tab} onChange={setTab} />
 
       <div className="flex-1 px-4 pb-4 pt-4">
-        <div className="rounded-3xl border border-parchment-line bg-parchment px-2 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+        <div className="rounded-3xl border border-[#e8c46a]/30 bg-[#f5efe6] px-2 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
           {status === 'loading' && <LoadingState />}
           {status === 'error' && <ErrorState onRetry={() => {}} />}
           {status === 'ready' && isEmpty && <EmptyState />}
@@ -124,7 +113,7 @@ export function Leaderboard() {
         />
       </div>
 
-      <BottomNav />
+      <LeaderboardBottomNav />
     </main>
   )
 }
