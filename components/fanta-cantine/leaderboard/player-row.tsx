@@ -59,7 +59,7 @@ export function PlayerRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-lg font-bold leading-tight text-cream-ink">
+        <p className="truncate font-display text-lg font-bold leading-tight text-cream-ink uppercase">
           {player.name}
         </p>
       </div>
