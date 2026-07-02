@@ -31,6 +31,14 @@ interface Evento {
   serata: number
 }
 
+// Mappa delle date delle serate
+const DATE_SERATE: Record<number, { mese: number, giorno: number }> = {
+  1: { mese: 7, giorno: 19 },  // 19 Agosto
+  2: { mese: 7, giorno: 20 },  // 20 Agosto
+  3: { mese: 7, giorno: 21 },  // 21 Agosto
+  4: { mese: 7, giorno: 22 },  // 22 Agosto
+}
+
 // Determina la serata corrente in base alla data di oggi
 const getSerataCorrente = (): number => {
   const oggi = new Date()
@@ -71,6 +79,61 @@ const getSerataFromDate = (date: Date): number => {
   return 1
 }
 
+// Determina la prossima data di scadenza (18:00 del giorno della serata)
+const getProssimaScadenza = (): Date | null => {
+  const oggi = new Date()
+  const serata = getSerataCorrente()
+  
+  // Se la festa è finita, return null
+  if (serata === 0) return null
+  
+  const serataInfo = DATE_SERATE[serata]
+  if (!serataInfo) return null
+  
+  // Crea la data della serata alle 18:00
+  const target = new Date(2026, serataInfo.mese, serataInfo.giorno, 18, 0, 0, 0)
+  
+  // Se oggi è il giorno della serata
+  const oggiData = new Date(oggi)
+  oggiData.setHours(0, 0, 0, 0)
+  
+  const targetData = new Date(target)
+  targetData.setHours(0, 0, 0, 0)
+  
+  // Se oggi è il giorno della serata
+  if (oggiData.getTime() === targetData.getTime()) {
+    // Scadenza oggi alle 18:00
+    const scadenza = new Date(oggi)
+    scadenza.setHours(18, 0, 0, 0)
+    
+    // Se sono già passate le 18:00, la scadenza è scaduta
+    if (oggi > scadenza) {
+      // Prossima scadenza: giorno dopo alle 18:00 (se esiste)
+      const prossimoGiorno = new Date(target)
+      prossimoGiorno.setDate(prossimoGiorno.getDate() + 1)
+      const prossimaSerata = getSerataFromDate(prossimoGiorno)
+      if (prossimaSerata === 0) return null
+      prossimoGiorno.setHours(18, 0, 0, 0)
+      return prossimoGiorno
+    }
+    
+    return scadenza
+  }
+  
+  // Se oggi è prima della serata, target è la serata alle 18:00
+  if (oggi < target) {
+    return target
+  }
+  
+  // Se oggi è dopo la serata, prossima scadenza è il giorno dopo alle 18:00
+  const prossimoGiorno = new Date(target)
+  prossimoGiorno.setDate(prossimoGiorno.getDate() + 1)
+  const prossimaSerata = getSerataFromDate(prossimoGiorno)
+  if (prossimaSerata === 0) return null
+  prossimoGiorno.setHours(18, 0, 0, 0)
+  return prossimoGiorno
+}
+
 export default function DashboardPage() {
   const [utente, setUtente] = useState<Utente | null>(null)
   const [stato, setStato] = useState<StatoPresenza>(null)
@@ -94,31 +157,18 @@ export default function DashboardPage() {
   // Timer per la formazione (scade alle 18:00 di ogni serata)
   useEffect(() => {
     const calcolaTimer = () => {
+      const prossimaScadenza = getProssimaScadenza()
+      
+      // Se non c'è una prossima scadenza, la festa è finita
+      if (!prossimaScadenza) {
+        setFestaFinita(true)
+        return { ore: 0, minuti: 0, secondi: 0 }
+      }
+      
       const ora = new Date()
-      const serata = getSerataCorrente()
-      
-      // Se la festa è finita, timer a zero
-      if (serata === 0) {
-        setFestaFinita(true)
-        return { ore: 0, minuti: 0, secondi: 0 }
-      }
-      
-      // Target: oggi alle 18:00
-      const target = new Date(ora)
-      target.setHours(18, 0, 0, 0)
-      
-      // Se sono già passate le 18:00, target diventa domani alle 18:00
-      if (ora > target) target.setDate(target.getDate() + 1)
-      
-      // Se il giorno target è dopo il 22 Agosto, la festa è finita
-      const targetSerata = getSerataFromDate(target)
-      if (targetSerata === 0) {
-        setFestaFinita(true)
-        return { ore: 0, minuti: 0, secondi: 0 }
-      }
+      const diff = Math.max(0, Math.floor((prossimaScadenza.getTime() - ora.getTime()) / 1000))
       
       setFestaFinita(false)
-      const diff = Math.max(0, Math.floor((target.getTime() - ora.getTime()) / 1000))
       return {
         ore: Math.floor(diff / 3600),
         minuti: Math.floor((diff % 3600) / 60),
@@ -153,9 +203,8 @@ export default function DashboardPage() {
     const serata = getSerataCorrente()
     setSerataCorrente(serata)
 
-    // Se la festa è finita, carica comunque i dati ma mostra messaggio
+    // Se la festa è finita, carica solo profilo utente
     if (serata === 0) {
-      // Carica solo profilo utente
       const { data: utenteData } = await supabase
         .from('utenti')
         .select('*')
