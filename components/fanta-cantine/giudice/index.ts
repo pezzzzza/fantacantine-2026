@@ -1,0 +1,10 @@
+// components/fanta-cantine/giudice/index.ts
+export { default as AvatarIniziali } from './AvatarIniziali'
+export { default as BonusCatalog } from './BonusCatalog'
+export { default as BottomNav } from './BottomNav'
+export { default as Header } from './Header'
+export { default as HistoryCard } from './HistoryCard'
+export { default as PendingProposals } from './PendingProposals'
+export { default as PlayerDetailModal } from './PlayerDetailModal'
+export { default as SearchCard } from './SearchCard'
+export { BonusGlyph } from './icons'
