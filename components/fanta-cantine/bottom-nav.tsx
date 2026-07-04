@@ -42,7 +42,7 @@ export function BottomNav() {
           <button
             type="button"
             aria-label="Area Giudice"
-            onClick={() => handleNavigate("giudice", "/giudice")}
+            onClick={() => handleNavigate("giudice", "/giudice")}  // 👈 SEMPRE /GIUDICE
             className={cn(
               "absolute -top-9 flex size-16 items-center justify-center rounded-full bg-gold text-gold-foreground shadow-lg ring-4 ring-background transition-transform active:scale-90 hover:brightness-105",
               active === "giudice" && "scale-105",
