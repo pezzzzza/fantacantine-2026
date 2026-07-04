@@ -58,4 +58,16 @@ export default function HistoryCard({ items }: HistoryCardProps) {
               <div style={{ width: 62, color: '#6e4a1e', fontSize: 11, fontWeight: 500, textAlign: 'center' }}>
                 {new Date(h.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
               </div>
-              <div className="flex items-center
+              <div className="flex items-center gap-1" style={{ width: 70, justifyContent: 'flex-end' }}>
+                <span style={{ color: confirmed ? '#3c6522' : '#a51f27', fontWeight: 700, fontSize: 11 }}>
+                  {confirmed ? 'CONFERMATA' : 'RIFIUTATA'}
+                </span>
+                {confirmed ? <CheckCircle2 size={15} color="#3c6522" /> : <XCircle size={15} color="#a51f27" />}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
