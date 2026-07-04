@@ -1,0 +1,61 @@
+'use client'
+
+import React from 'react'
+import { CheckCircle2, XCircle } from 'lucide-react'
+import { BonusGlyph } from './icons'
+import AvatarIniziali from './AvatarIniziali'
+import { type Proposta } from '@/lib/supabase/giudice-queries'
+
+interface HistoryCardProps {
+  items: Proposta[]
+}
+
+export default function HistoryCard({ items }: HistoryCardProps) {
+  const getIconName = (nome: string): string => {
+    const lower = nome.toLowerCase()
+    if (lower.includes('danza') || lower.includes('balla')) return 'dance'
+    if (lower.includes('canta') || lower.includes('musica')) return 'music'
+    if (lower.includes('gruppo') || lower.includes('treno')) return 'group'
+    if (lower.includes('vino') || lower.includes('beve') || lower.includes('brinda')) return 'wine'
+    if (lower.includes('litiga') || lower.includes('arrabbiato')) return 'angry'
+    return 'default'
+  }
+
+  return (
+    <div className="parchment-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="card-badge">4</span>
+        <h2 className="card-title text-lg">STORICO RECENTE</h2>
+      </div>
+
+      <div className="flex flex-col max-h-72 overflow-y-auto">
+        {items.length === 0 && (
+          <div style={{ color: '#8a6a3a', textAlign: 'center', padding: 20, fontWeight: 500 }}>
+            Nessuno storico disponibile
+          </div>
+        )}
+        {items.map((h, i) => {
+          const confirmed = h.stato === 'confermato'
+          const isBonus = (h.bonus_punti || 0) >= 0
+          return (
+            <div key={h.id} className="flex items-center gap-2" style={{ padding: '11px 0', borderTop: i === 0 ? 'none' : '1px dashed #d3c095' }}>
+              <AvatarIniziali nome={h.utente_nome || '?'} cognome={h.utente_cognome} size="sm" />
+              <div style={{ width: 58, fontWeight: 700, color: '#3a2410', fontSize: 14 }}>
+                {h.utente_nome}
+              </div>
+              <span className={`icon-circle ${isBonus ? 'icon-green' : 'icon-red'}`} style={{ width: 34, height: 34 }}>
+                <BonusGlyph name={getIconName(h.bonus_nome || '')} size={17} />
+              </span>
+              <div className="flex-1" style={{ minWidth: 70 }}>
+                <div style={{ fontWeight: 700, color: '#3a2410', fontSize: 13, lineHeight: 1.1 }}>{h.bonus_nome}</div>
+                <div style={{ color: (h.bonus_punti || 0) >= 0 ? '#3c6522' : '#a51f27', fontWeight: 700, fontSize: 13 }}>
+                  {(h.bonus_punti || 0) >= 0 ? '+' : ''}{h.bonus_punti} pt
+                </div>
+              </div>
+              <div style={{ width: 78, color: '#8a6a3a', fontSize: 11, fontWeight: 500, lineHeight: 1.15 }}>
+                Proposto da: {h.proposto_da_nome}
+              </div>
+              <div style={{ width: 62, color: '#6e4a1e', fontSize: 11, fontWeight: 500, textAlign: 'center' }}>
+                {new Date(h.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              <div className="flex items-center
