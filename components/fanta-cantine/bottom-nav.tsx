@@ -37,15 +37,15 @@ export function BottomNav() {
           ))}
         </div>
 
-        {/* center elevated button */}
+        {/* center elevated button - VAI A /GIUDICE */}
         <div className="relative flex w-16 shrink-0 justify-center">
           <button
             type="button"
-            aria-label="Azione principale"
-            onClick={() => handleNavigate("home", "/home")}
+            aria-label="Area Giudice"
+            onClick={() => handleNavigate("giudice", "/giudice")}
             className={cn(
               "absolute -top-9 flex size-16 items-center justify-center rounded-full bg-gold text-gold-foreground shadow-lg ring-4 ring-background transition-transform active:scale-90 hover:brightness-105",
-              active === "wine" && "scale-105",
+              active === "giudice" && "scale-105",
             )}
           >
             <Wine className="size-8" />
